@@ -14,13 +14,17 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/documents")
 public class DocumentController {
+    private final DocumentService documentService;
     private final FileStorageService fileStorageService;
+    public DocumentController() {
+        this.documentService = null;
+        this.fileStorageService = null;
+    }
     public DocumentController(DocumentService documentService, FileStorageService fileStorageService) {
         this.documentService = documentService;
         this.fileStorageService = fileStorageService;
     }
 
-    private final DocumentService documentService;
 
     public DocumentController(FileStorageService fileStorageService, DocumentService documentService) {
         this.fileStorageService = fileStorageService;
