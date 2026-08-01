@@ -75,10 +75,56 @@ public class DocumentController {
                 null, // content sera extrait plus tard
                 status
         );
-
         // 3. Sauvegarde en base via le service existant
         DocumentReponse response = documentService.create(request);
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+    // Endpoints pour les Tags
+
+    @PostMapping("/{documentId}/tags/{tagId}")
+    public ResponseEntity<DocumentReponse> addTagToDocument(
+            @PathVariable Long documentId,
+            @PathVariable Long tagId) {
+        DocumentReponse response = documentService.addTagToDocument(documentId, tagId);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{documentId}/tags/{tagId}")
+    public ResponseEntity<Void> removeTagFromDocument(
+            @PathVariable Long documentId,
+            @PathVariable Long tagId) {
+        documentService.removeTagFromDocument(documentId, tagId);
+        return ResponseEntity.noContent().build();
+    }
+
+// Endpoints pour les Folders
+
+    @PostMapping("/{documentId}/folders/{folderId}")
+    public ResponseEntity<DocumentReponse> addFolderToDocument(
+            @PathVariable Long documentId,
+            @PathVariable Long folderId) {
+        DocumentReponse response = documentService.addFolderToDocument(documentId, folderId);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{documentId}/folders/{folderId}")
+    public ResponseEntity<Void> removeFolderFromDocument(
+            @PathVariable Long documentId,
+            @PathVariable Long folderId) {
+        documentService.removeFolderFromDocument(documentId, folderId);
+        return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/search")
+    public ResponseEntity<List<DocumentReponse>> searchDocuments(
+            @RequestParam("q") String keyword) {
+        List<DocumentReponse> results = documentService.searchByKeyword(keyword);
+        return ResponseEntity.ok(results);
+    }
+    @GetMapping("/search/semantic")
+    public ResponseEntity<List<DocumentReponse>> searchSemantic(
+            @RequestParam("q") String query) {
+        List<DocumentReponse> results = documentService.searchSemantic(query);
+        return ResponseEntity.ok(results);
     }
 }

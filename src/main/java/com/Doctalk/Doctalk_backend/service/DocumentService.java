@@ -8,7 +8,14 @@ import java.util.List;
 public interface DocumentService {
     DocumentReponse create(DocumentRequest request);
     DocumentReponse getById(Long id);
+    DocumentReponse update(Long id, DocumentRequest documentRequest);
     List<DocumentReponse> getAll();
-    DocumentReponse update(Long id, DocumentRequest request);
+    DocumentReponse addTagToDocument(Long documentId, Long tagId);
+    DocumentReponse removeTagFromDocument(Long documentId, Long tagId);
+
+    DocumentReponse addFolderToDocument(Long documentId, Long folderId);
+    DocumentReponse removeFolderFromDocument(Long documentId, Long folderId);
     void delete(Long id);
+    List<DocumentReponse> searchByKeyword(String keyword);
+    List<DocumentReponse> searchSemantic(String query);
 }

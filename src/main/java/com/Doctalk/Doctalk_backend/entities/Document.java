@@ -2,6 +2,8 @@ package com.Doctalk.Doctalk_backend.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 public class Document {
@@ -36,6 +38,20 @@ public class Document {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @ManyToMany
+    @JoinTable(
+            name="document_tag",
+            joinColumns = @JoinColumn(name="document_id"),
+            inverseJoinColumns = @JoinColumn(name="tag_id")
+    )
+    private Set<Tag> tags = new HashSet<>();
+    @ManyToMany
+    @JoinTable(
+            name = "document_folder",
+            joinColumns = @JoinColumn(name = "document_id"),
+            inverseJoinColumns = @JoinColumn(name="folder_id")
+    )
+    private Set<Folder> folders = new HashSet<>();
 
     public Document() {}
 
@@ -62,6 +78,23 @@ public class Document {
     }
 
     // Getters et Setters
+
+    public Set<Tag> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<Tag> tags) {
+        this.tags = tags;
+    }
+
+    public Set<Folder> getFolders() {
+        return folders;
+    }
+
+    public void setFolders(Set<Folder> folders) {
+        this.folders = folders;
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

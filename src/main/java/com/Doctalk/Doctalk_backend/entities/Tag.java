@@ -2,6 +2,8 @@ package com.Doctalk.Doctalk_backend.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 public class Tag {
@@ -20,6 +22,8 @@ public class Tag {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @ManyToMany(mappedBy = "tags")
+    private Set<Document> documents =new HashSet<>();
 
     public Tag() {}
 
@@ -40,6 +44,15 @@ public class Tag {
     }
 
     // Getters et Setters
+
+    public Set<Document> getDocuments() {
+        return documents;
+    }
+
+    public void setDocuments(Set<Document> documents) {
+        this.documents = documents;
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
