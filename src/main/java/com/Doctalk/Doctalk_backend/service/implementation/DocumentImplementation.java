@@ -97,32 +97,6 @@ public class DocumentImplementation implements DocumentService {
         }
         documentsRepository.deleteById(id);
     }
-    // NOUVELLE MÉTHODE : Créer un document avec parsing automatique
-    public DocumentReponse createWithParsing(DocumentRequest request, MultipartFile file) {
-        Document document = documentsMapper.toEntity(request);
-
-        if (file.getContentType() != null && file.getContentType().equals("application/pdf")) {
-            try {
-                String extractedText = pdfParsingService.extractText(file);
-                document.setContent(extractedText);
-                document.setStatus("PARSED");
-            } catch (Exception e) {
-                document.setContent("Erreur d'extraction : " + e.getMessage());
-                document.setStatus("ERROR");
-            }
-        } else {
-            document.setStatus("PENDING");
-        }
-
-        document = documentsRepository.save(document);
-
-        // ✅ NOUVEAU : Générer les chunks après la sauvegarde
-        if (document.getStatus().equals("PARSED")) {
-            generateChunksForDocument(document);
-        }
-
-        return documentsMapper.toResponse(document);
-    }
     @Override
     @Transactional
     public DocumentReponse addTagToDocument(Long documentId, Long tagId) {
@@ -250,6 +224,32 @@ public class DocumentImplementation implements DocumentService {
         }
 
         return responses;
+    }
+    // NOUVELLE MÉTHODE : Créer un document avec parsing automatique
+    @Override
+    public DocumentReponse createWithParsing(DocumentRequest request, MultipartFile file) {
+        Document document = documentsMapper.toEntity(request);
+
+        if (file.getContentType() != null && file.getContentType().equals("application/pdf")) {
+            try {
+                String extractedText = pdfParsingService.extractText(file);
+                document.setContent(extractedText);
+                document.setStatus("PARSED");
+            } catch (Exception e) {
+                document.setContent("Erreur d'extraction : " + e.getMessage());
+                document.setStatus("ERROR");
+            }
+        } else {
+            document.setStatus("PENDING");
+        }
+
+        document = documentsRepository.save(document);
+
+        if (document.getStatus().equals("PARSED")) {
+            generateChunksForDocument(document);
+        }
+
+        return documentsMapper.toResponse(document);
     }
 
 }

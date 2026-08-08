@@ -1,4 +1,4 @@
-package com.Doctalk.Doctalk_backend.service.impl;
+package com.Doctalk.Doctalk_backend.service.implementation;
 
 import com.Doctalk.Doctalk_backend.dto.reponse.TagReponse;
 import com.Doctalk.Doctalk_backend.dto.request.TagRequest;

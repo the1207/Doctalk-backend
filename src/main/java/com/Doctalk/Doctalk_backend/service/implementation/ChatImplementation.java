@@ -13,6 +13,7 @@ import com.Doctalk.Doctalk_backend.service.ChatService;
 import com.Doctalk.Doctalk_backend.service.EmbeddingService;
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
+import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class ChatImplementation implements ChatService {
     private final ChunkRepository chunkRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
+    private final Gson gson = new Gson();
 
     @Value("${gemini.api.key}")
     private String apiKey;
@@ -35,9 +37,9 @@ public class ChatImplementation implements ChatService {
     private static final int MAX_CHUNKS = 5;
 
     public ChatImplementation(EmbeddingService embeddingService,
-                           ChunkRepository chunkRepository,
-                           ConversationRepository conversationRepository,
-                           MessageRepository messageRepository) {
+                              ChunkRepository chunkRepository,
+                              ConversationRepository conversationRepository,
+                              MessageRepository messageRepository) {
         this.embeddingService = embeddingService;
         this.chunkRepository = chunkRepository;
         this.conversationRepository = conversationRepository;
@@ -47,33 +49,26 @@ public class ChatImplementation implements ChatService {
     @Override
     @Transactional
     public ChatResponse ask(ChatRequest request) {
-        // 1. Récupérer ou créer la conversation
         Conversation conversation = getOrCreateConversation(request.conversationId());
 
-        // 2. Sauvegarder la question de l'utilisateur
         Message userMessage = new Message("USER", request.question(), conversation);
         messageRepository.save(userMessage);
 
-        // 3. Chercher les chunks pertinents
         List<Float> queryEmbedding = embeddingService.generateEmbedding(request.question());
         String vectorString = queryEmbedding.toString();
         List<Chunk> relevantChunks = chunkRepository.findSimilarChunksAll(vectorString, MAX_CHUNKS);
 
-        // 4. Construire le prompt pour Gemini
         String prompt = buildPrompt(request.question(), relevantChunks);
 
-        // 5. Appeler Gemini pour générer la réponse
         String answer = callGemini(prompt);
 
-        // 6. Sauvegarder la réponse de l'assistant
         Message assistantMessage = new Message("ASSISTANT", answer, conversation);
 
-        // 7. Ajouter les sources
         List<Source> sources = buildSources(relevantChunks);
-        assistantMessage.setSources(sources.toString());
+        // Sérialisation en JSON réel (au lieu de List.toString())
+        assistantMessage.setSources(gson.toJson(sources));
         messageRepository.save(assistantMessage);
 
-        // 8. Retourner la réponse
         return new ChatResponse(
                 conversation.getId(),
                 answer,
@@ -131,7 +126,7 @@ public class ChatImplementation implements ChatService {
                     chunk.getId(),
                     chunk.getContent(),
                     chunk.getDocument().getTitle(),
-                    0.9 // Pour l'instant, on met une valeur fixe
+                    0.9
             ));
         }
         return sources;

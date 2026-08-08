@@ -2,11 +2,13 @@ package com.Doctalk.Doctalk_backend.service;
 
 import com.Doctalk.Doctalk_backend.dto.reponse.DocumentReponse;
 import com.Doctalk.Doctalk_backend.dto.request.DocumentRequest;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 public interface DocumentService {
     DocumentReponse create(DocumentRequest request);
+    DocumentReponse createWithParsing(DocumentRequest request, MultipartFile file);
     DocumentReponse getById(Long id);
     DocumentReponse update(Long id, DocumentRequest documentRequest);
     List<DocumentReponse> getAll();

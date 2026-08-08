@@ -14,21 +14,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/documents")
 public class DocumentController {
+
     private final DocumentService documentService;
     private final FileStorageService fileStorageService;
-    public DocumentController() {
-        this.documentService = null;
-        this.fileStorageService = null;
-    }
+
+    // Un seul constructeur : Spring peut faire l'injection sans ambiguïté
     public DocumentController(DocumentService documentService, FileStorageService fileStorageService) {
         this.documentService = documentService;
         this.fileStorageService = fileStorageService;
-    }
-
-
-    public DocumentController(FileStorageService fileStorageService, DocumentService documentService) {
-        this.fileStorageService = fileStorageService;
-        this.documentService = documentService;
     }
 
     @PostMapping
@@ -60,6 +53,7 @@ public class DocumentController {
         documentService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
     @PostMapping("/upload")
     public ResponseEntity<DocumentReponse> upload(
             @RequestParam("file") MultipartFile file,
@@ -76,14 +70,16 @@ public class DocumentController {
                 storedFilename,
                 file.getSize(),
                 file.getContentType(),
-                null, // content sera extrait plus tard
+                null, // content sera extrait par le parsing
                 status
         );
-        // 3. Sauvegarde en base via le service existant
-        DocumentReponse response = documentService.create(request);
+
+        // 3. Sauvegarde + parsing PDF + chunking + embeddings
+        DocumentReponse response = documentService.createWithParsing(request, file);
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
+
     // Endpoints pour les Tags
 
     @PostMapping("/{documentId}/tags/{tagId}")
@@ -102,7 +98,7 @@ public class DocumentController {
         return ResponseEntity.noContent().build();
     }
 
-// Endpoints pour les Folders
+    // Endpoints pour les Folders
 
     @PostMapping("/{documentId}/folders/{folderId}")
     public ResponseEntity<DocumentReponse> addFolderToDocument(
@@ -119,12 +115,14 @@ public class DocumentController {
         documentService.removeFolderFromDocument(documentId, folderId);
         return ResponseEntity.noContent().build();
     }
+
     @GetMapping("/search")
     public ResponseEntity<List<DocumentReponse>> searchDocuments(
             @RequestParam("q") String keyword) {
         List<DocumentReponse> results = documentService.searchByKeyword(keyword);
         return ResponseEntity.ok(results);
     }
+
     @GetMapping("/search/semantic")
     public ResponseEntity<List<DocumentReponse>> searchSemantic(
             @RequestParam("q") String query) {
