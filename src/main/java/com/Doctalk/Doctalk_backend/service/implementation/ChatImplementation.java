@@ -56,11 +56,27 @@ public class ChatImplementation implements ChatService {
 
         List<Float> queryEmbedding = embeddingService.generateEmbedding(request.question());
         String vectorString = queryEmbedding.toString();
-        List<Chunk> relevantChunks = chunkRepository.findSimilarChunksAll(vectorString, MAX_CHUNKS);
+        List<Chunk> relevantChunks;
 
+<<<<<<< HEAD
         String prompt = buildPrompt(request.question(), relevantChunks);
 
         String answer = callGemini(prompt);
+=======
+        if (request.documentId() != null) {
+            relevantChunks = chunkRepository.findSimilarChunks(request.documentId(), vectorString, MAX_CHUNKS);
+        } else {
+            relevantChunks = chunkRepository.findSimilarChunksAll(vectorString, MAX_CHUNKS);
+        }
+
+        String answer;
+        if (relevantChunks.isEmpty()) {
+            answer = "Je n'ai trouvé aucun contenu pertinent dans les documents vectorisés. Merci de téléverser un document ou de vérifier qu'il est bien traité.";
+        } else {
+            String prompt = buildPrompt(request.question(), relevantChunks, request.documentId() != null);
+            answer = callGemini(prompt);
+        }
+>>>>>>> fc5babe (mises a jour)
 
         Message assistantMessage = new Message("ASSISTANT", answer, conversation);
 
@@ -86,7 +102,7 @@ public class ChatImplementation implements ChatService {
         return conversationRepository.save(newConversation);
     }
 
-    private String buildPrompt(String question, List<Chunk> chunks) {
+    private String buildPrompt(String question, List<Chunk> chunks, boolean isDocumentContext) {
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
             context.append("Extrait ").append(i + 1).append(":\n")
@@ -94,8 +110,14 @@ public class ChatImplementation implements ChatService {
                     .append("\n\n");
         }
 
-        return "Tu es un assistant expert. Réponds à la question en te basant UNIQUEMENT sur les extraits suivants. "
-                + "Si la réponse n'est pas dans les extraits, dis-le clairement. Ne invente pas d'informations.\n\n"
+        String baseInstruction = "Tu es un assistant expert.";
+        if (isDocumentContext) {
+            baseInstruction += " Réponds en priorité à partir du document sélectionné.";
+        } else {
+            baseInstruction += " Réponds uniquement à partir des documents disponibles.";
+        }
+
+        return baseInstruction + " Si la réponse n'est pas dans les extraits, dis-le clairement. Ne invente pas d'informations.\n\n"
                 + "### EXTRAITS :\n" + context.toString()
                 + "### QUESTION :\n" + question + "\n\n"
                 + "### RÉPONSE :";

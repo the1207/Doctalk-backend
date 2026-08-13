@@ -230,6 +230,7 @@ public class DocumentImplementation implements DocumentService {
     public DocumentReponse createWithParsing(DocumentRequest request, MultipartFile file) {
         Document document = documentsMapper.toEntity(request);
 
+<<<<<<< HEAD
         if (file.getContentType() != null && file.getContentType().equals("application/pdf")) {
             try {
                 String extractedText = pdfParsingService.extractText(file);
@@ -241,12 +242,33 @@ public class DocumentImplementation implements DocumentService {
             }
         } else {
             document.setStatus("PENDING");
+=======
+        try {
+            String extractedText = pdfParsingService.extractText(file);
+            if (extractedText != null && !extractedText.isBlank()) {
+                document.setContent(extractedText.trim());
+                document.setStatus("PARSED");
+            } else {
+                document.setContent("");
+                document.setStatus("ERROR");
+            }
+        } catch (Exception e) {
+            document.setContent("Erreur d'extraction : " + e.getMessage());
+            document.setStatus("ERROR");
+>>>>>>> fc5babe (mises a jour)
         }
 
         document = documentsRepository.save(document);
 
+<<<<<<< HEAD
         if (document.getStatus().equals("PARSED")) {
             generateChunksForDocument(document);
+=======
+        if ("PARSED".equals(document.getStatus())) {
+            generateChunksForDocument(document);
+            document.setStatus("VECTORIZED");
+            document = documentsRepository.save(document);
+>>>>>>> fc5babe (mises a jour)
         }
 
         return documentsMapper.toResponse(document);

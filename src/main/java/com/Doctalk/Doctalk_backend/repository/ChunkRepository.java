@@ -14,17 +14,16 @@ public interface ChunkRepository extends JpaRepository<Chunk, Long> {
     List<Chunk> findByDocumentIdOrderByChunkIndexAsc(Long documentId);
 
     void deleteByDocumentId(Long documentId);
-    @Query(value = "SELECT *, 1 - (embedding::vector <=> cast(:queryEmbedding as vector)) AS similarity " +
-            "FROM chunks " +
+    @Query(value = "SELECT c.* FROM chunks c " +
             "WHERE document_id = :documentId " +
-            "ORDER BY similarity DESC " +
+            "ORDER BY 1 - (c.embedding::vector <=> cast(:queryEmbedding as vector)) DESC " +
             "LIMIT :limit", nativeQuery = true)
-    List<Object[]> findSimilarChunks(@Param("documentId") Long documentId,
-                                     @Param("queryEmbedding") String queryEmbedding,
-                                     @Param("limit") int limit);
-    @Query(value = "SELECT c.*, 1 - (c.embedding::vector <=> cast(:queryEmbedding as vector)) AS similarity " +
-            "FROM chunks c " +
-            "ORDER BY similarity DESC " +
+    List<Chunk> findSimilarChunks(@Param("documentId") Long documentId,
+                                  @Param("queryEmbedding") String queryEmbedding,
+                                  @Param("limit") int limit);
+
+    @Query(value = "SELECT c.* FROM chunks c " +
+            "ORDER BY 1 - (c.embedding::vector <=> cast(:queryEmbedding as vector)) DESC " +
             "LIMIT :limit", nativeQuery = true)
     List<Chunk> findSimilarChunksAll(@Param("queryEmbedding") String queryEmbedding,
                                      @Param("limit") int limit);

@@ -65,6 +65,12 @@
 			<artifactId>pdfbox</artifactId>
 			<version>3.0.3</version>
 		</dependency>
+		<!-- Apache POI pour DOCX/DOC -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.3</version>
+		</dependency>
 		<!-- Google Gemini API -->
 		<dependency>
 			<groupId>com.google.genai</groupId>
