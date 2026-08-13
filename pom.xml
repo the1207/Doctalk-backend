@@ -71,6 +71,12 @@
 			<artifactId>poi-ooxml</artifactId>
 			<version>5.2.3</version>
 		</dependency>
+		<!-- Apache POI scratchpad pour HWPF (DOC) -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-scratchpad</artifactId>
+			<version>5.2.3</version>
+		</dependency>
 		<!-- Google Gemini API -->
 		<dependency>
 			<groupId>com.google.genai</groupId>

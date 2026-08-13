@@ -3,10 +3,11 @@ package com.Doctalk.Doctalk_backend.service.implementation;
 import com.Doctalk.Doctalk_backend.dto.reponse.ChatResponse;
 import com.Doctalk.Doctalk_backend.dto.reponse.Source;
 import com.Doctalk.Doctalk_backend.dto.request.ChatRequest;
-import com.Doctalk.Doctalk_backend.entities.Chunk;
+import com.Doctalk.Doctalk_backend.repository.ChunkSimilarityProjection;
 import com.Doctalk.Doctalk_backend.entities.Conversation;
 import com.Doctalk.Doctalk_backend.entities.Message;
 import com.Doctalk.Doctalk_backend.repository.ChunkRepository;
+import com.Doctalk.Doctalk_backend.utils.VectorUtils;
 import com.Doctalk.Doctalk_backend.repository.ConversationRepository;
 import com.Doctalk.Doctalk_backend.repository.MessageRepository;
 import com.Doctalk.Doctalk_backend.service.ChatService;
@@ -55,18 +56,13 @@ public class ChatImplementation implements ChatService {
         messageRepository.save(userMessage);
 
         List<Float> queryEmbedding = embeddingService.generateEmbedding(request.question());
-        String vectorString = queryEmbedding.toString();
-        List<Chunk> relevantChunks;
+        String vectorString = VectorUtils.toPgVectorLiteral(queryEmbedding);
 
-<<<<<<< HEAD
-        String prompt = buildPrompt(request.question(), relevantChunks);
-
-        String answer = callGemini(prompt);
-=======
+        List<ChunkSimilarityProjection> relevantChunks;
         if (request.documentId() != null) {
-            relevantChunks = chunkRepository.findSimilarChunks(request.documentId(), vectorString, MAX_CHUNKS);
+            relevantChunks = chunkRepository.findSimilarChunksWithScore(request.documentId(), vectorString, MAX_CHUNKS);
         } else {
-            relevantChunks = chunkRepository.findSimilarChunksAll(vectorString, MAX_CHUNKS);
+            relevantChunks = chunkRepository.findSimilarChunksAllWithScore(vectorString, MAX_CHUNKS);
         }
 
         String answer;
@@ -76,7 +72,6 @@ public class ChatImplementation implements ChatService {
             String prompt = buildPrompt(request.question(), relevantChunks, request.documentId() != null);
             answer = callGemini(prompt);
         }
->>>>>>> fc5babe (mises a jour)
 
         Message assistantMessage = new Message("ASSISTANT", answer, conversation);
 
@@ -102,7 +97,7 @@ public class ChatImplementation implements ChatService {
         return conversationRepository.save(newConversation);
     }
 
-    private String buildPrompt(String question, List<Chunk> chunks, boolean isDocumentContext) {
+    private String buildPrompt(String question, List<ChunkSimilarityProjection> chunks, boolean isDocumentContext) {
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
             context.append("Extrait ").append(i + 1).append(":\n")
@@ -141,14 +136,14 @@ public class ChatImplementation implements ChatService {
         }
     }
 
-    private List<Source> buildSources(List<Chunk> chunks) {
+    private List<Source> buildSources(List<ChunkSimilarityProjection> chunks) {
         List<Source> sources = new ArrayList<>();
-        for (Chunk chunk : chunks) {
+        for (ChunkSimilarityProjection chunk : chunks) {
             sources.add(new Source(
                     chunk.getId(),
                     chunk.getContent(),
-                    chunk.getDocument().getTitle(),
-                    0.9
+                    chunk.getDocumentTitle(),
+                    chunk.getSimilarity()
             ));
         }
         return sources;

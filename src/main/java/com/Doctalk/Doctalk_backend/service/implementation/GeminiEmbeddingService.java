@@ -1,18 +1,19 @@
 package com.Doctalk.Doctalk_backend.service.implementation;
 
-import com.Doctalk.Doctalk_backend.service.EmbeddingService;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.Doctalk.Doctalk_backend.service.EmbeddingService;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 @Service
 public class GeminiEmbeddingService implements EmbeddingService {
@@ -32,9 +33,14 @@ public class GeminiEmbeddingService implements EmbeddingService {
             // Construire le corps de la requête
             JsonObject requestBody = new JsonObject();
             JsonObject content = new JsonObject();
-            JsonObject parts = new JsonObject();
-            parts.addProperty("text", text);
-            content.add("parts", parts);
+
+            // IMPORTANT : "parts" doit être un JsonArray, pas un JsonObject
+            JsonArray partsArray = new JsonArray();
+            JsonObject part = new JsonObject();
+            part.addProperty("text", text);
+            partsArray.add(part);
+
+            content.add("parts", partsArray);
             requestBody.add("content", content);
 
             // Créer la requête HTTP

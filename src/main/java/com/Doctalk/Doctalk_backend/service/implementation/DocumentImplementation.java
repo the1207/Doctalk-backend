@@ -1,11 +1,19 @@
 package com.Doctalk.Doctalk_backend.service.implementation;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.Doctalk.Doctalk_backend.Mapper.DocumentsMapper;
 import com.Doctalk.Doctalk_backend.dto.reponse.DocumentReponse;
-import com.Doctalk.Doctalk_backend.dto.reponse.FolderReponse;
 import com.Doctalk.Doctalk_backend.dto.request.DocumentRequest;
 import com.Doctalk.Doctalk_backend.entities.Chunk;
 import com.Doctalk.Doctalk_backend.entities.Document;
-import com.Doctalk.Doctalk_backend.Mapper.DocumentsMapper;
 import com.Doctalk.Doctalk_backend.entities.Folder;
 import com.Doctalk.Doctalk_backend.entities.Tag;
 import com.Doctalk.Doctalk_backend.repository.ChunkRepository;
@@ -16,15 +24,9 @@ import com.Doctalk.Doctalk_backend.service.ChunkingService;
 import com.Doctalk.Doctalk_backend.service.DocumentService;
 import com.Doctalk.Doctalk_backend.service.EmbeddingService;
 import com.Doctalk.Doctalk_backend.service.PdfParsingService;
-import jakarta.transaction.Transactional;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import com.Doctalk.Doctalk_backend.utils.VectorUtils;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import jakarta.transaction.Transactional;
 
 @Service
 public class DocumentImplementation implements DocumentService {
@@ -186,8 +188,7 @@ public class DocumentImplementation implements DocumentService {
             // Générer l'embedding pour chaque chunk
             try {
                 List<Float> embedding = embeddingService.generateEmbedding(chunks.get(i));
-                // On stocke l'embedding sous forme de chaîne (on le convertira plus tard)
-                chunk.setEmbedding(embedding.toString());
+                chunk.setEmbedding(VectorUtils.toPgVectorLiteral(embedding));
             } catch (Exception e) {
                 chunk.setEmbedding("[]"); // Embedding vide en cas d'erreur
             }
@@ -206,7 +207,7 @@ public class DocumentImplementation implements DocumentService {
         List<Float> queryEmbedding = embeddingService.generateEmbedding(query);
 
         // 2. Convertir en format PostgreSQL (ex: [0.1, 0.2, 0.3, ...])
-        String vectorString = queryEmbedding.toString();
+        String vectorString = VectorUtils.toPgVectorLiteral(queryEmbedding);
 
         // 3. Chercher les chunks similaires (tous documents confondus)
         List<Chunk> similarChunks = chunkRepository.findSimilarChunksAll(vectorString, 20);
@@ -230,19 +231,6 @@ public class DocumentImplementation implements DocumentService {
     public DocumentReponse createWithParsing(DocumentRequest request, MultipartFile file) {
         Document document = documentsMapper.toEntity(request);
 
-<<<<<<< HEAD
-        if (file.getContentType() != null && file.getContentType().equals("application/pdf")) {
-            try {
-                String extractedText = pdfParsingService.extractText(file);
-                document.setContent(extractedText);
-                document.setStatus("PARSED");
-            } catch (Exception e) {
-                document.setContent("Erreur d'extraction : " + e.getMessage());
-                document.setStatus("ERROR");
-            }
-        } else {
-            document.setStatus("PENDING");
-=======
         try {
             String extractedText = pdfParsingService.extractText(file);
             if (extractedText != null && !extractedText.isBlank()) {
@@ -255,20 +243,14 @@ public class DocumentImplementation implements DocumentService {
         } catch (Exception e) {
             document.setContent("Erreur d'extraction : " + e.getMessage());
             document.setStatus("ERROR");
->>>>>>> fc5babe (mises a jour)
         }
 
         document = documentsRepository.save(document);
 
-<<<<<<< HEAD
-        if (document.getStatus().equals("PARSED")) {
-            generateChunksForDocument(document);
-=======
         if ("PARSED".equals(document.getStatus())) {
             generateChunksForDocument(document);
             document.setStatus("VECTORIZED");
             document = documentsRepository.save(document);
->>>>>>> fc5babe (mises a jour)
         }
 
         return documentsMapper.toResponse(document);
