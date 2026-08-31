@@ -1,24 +1,32 @@
 package com.Doctalk.Doctalk_backend.service.implementation;
 
-import com.Doctalk.Doctalk_backend.dto.reponse.TagReponse;
-import com.Doctalk.Doctalk_backend.dto.request.TagRequest;
-import com.Doctalk.Doctalk_backend.entities.Tag;
-import com.Doctalk.Doctalk_backend.Mapper.TagMapper;
-import com.Doctalk.Doctalk_backend.repository.TagRepository;
-import com.Doctalk.Doctalk_backend.service.TagService;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
+import com.Doctalk.Doctalk_backend.Exeption.TagNotFoundException;
+import com.Doctalk.Doctalk_backend.Mapper.TagMapper;
+import com.Doctalk.Doctalk_backend.dto.reponse.TagReponse;
+import com.Doctalk.Doctalk_backend.dto.request.TagRequest;
+import com.Doctalk.Doctalk_backend.entities.Document;
+import com.Doctalk.Doctalk_backend.entities.Tag;
+import com.Doctalk.Doctalk_backend.repository.DocumentsRepository;
+import com.Doctalk.Doctalk_backend.repository.TagRepository;
+import com.Doctalk.Doctalk_backend.service.TagService;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class TagImplementation implements TagService {
 
     private final TagRepository tagRepository;
+    private final DocumentsRepository documentsRepository;
     private final TagMapper tagMapper;
 
-    public TagImplementation(TagRepository tagRepository, TagMapper tagMapper) {
+    public TagImplementation(TagRepository tagRepository, DocumentsRepository documentsRepository, TagMapper tagMapper) {
         this.tagRepository = tagRepository;
+        this.documentsRepository = documentsRepository;
         this.tagMapper = tagMapper;
     }
 
@@ -32,7 +40,7 @@ public class TagImplementation implements TagService {
     @Override
     public TagReponse getById(Long id) {
         Tag tag = tagRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tag non trouvé avec l'id : " + id));
+                .orElseThrow(() -> new TagNotFoundException(id));
         return tagMapper.toResponse(tag);
     }
 
@@ -47,20 +55,25 @@ public class TagImplementation implements TagService {
     @Override
     public TagReponse update(Long id, TagRequest request) {
         Tag existingTag = tagRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tag non trouvé avec l'id : " + id));
+                .orElseThrow(() -> new TagNotFoundException(id));
 
-        existingTag.setName(request.name());
-        existingTag.setColor(request.color());
+        if (request.name() != null) existingTag.setName(request.name());
+        if (request.color() != null) existingTag.setColor(request.color());
 
         Tag updatedTag = tagRepository.save(existingTag);
         return tagMapper.toResponse(updatedTag);
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
-        if (!tagRepository.existsById(id)) {
-            throw new RuntimeException("Tag non trouvé avec l'id : " + id);
-        }
-        tagRepository.deleteById(id);
+        Tag tag = tagRepository.findById(id)
+                .orElseThrow(() -> new TagNotFoundException(id));
+
+        List<Document> docs = tagRepository.findDocumentsByTagId(id);
+        docs.forEach(d -> d.getTags().remove(tag));
+        documentsRepository.saveAll(docs);
+
+        tagRepository.delete(tag);
     }
 }

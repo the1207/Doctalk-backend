@@ -9,6 +9,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.Doctalk.Doctalk_backend.Exeption.DocumentNotFoundException;
+import com.Doctalk.Doctalk_backend.Exeption.FolderNotFoundException;
+import com.Doctalk.Doctalk_backend.Exeption.TagNotFoundException;
 import com.Doctalk.Doctalk_backend.Mapper.DocumentsMapper;
 import com.Doctalk.Doctalk_backend.dto.reponse.DocumentReponse;
 import com.Doctalk.Doctalk_backend.dto.request.DocumentRequest;
@@ -64,15 +67,15 @@ public class DocumentImplementation implements DocumentService {
     @Override
     public DocumentReponse update(Long id, DocumentRequest request) {
         Document existingDocument = documentsRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé avec l'id : " + id));
+                .orElseThrow(() -> new DocumentNotFoundException(id));
 
-        existingDocument.setTitle(request.title());
-        existingDocument.setFilename(request.filename());
-        existingDocument.setFilePath(request.filePath());
-        existingDocument.setFileSize(request.fileSize());
-        existingDocument.setMimeType(request.mimeType());
-        existingDocument.setContent(request.content());
-        existingDocument.setStatus(request.status());
+        if (request.title() != null) existingDocument.setTitle(request.title());
+        if (request.filename() != null) existingDocument.setFilename(request.filename());
+        if (request.filePath() != null) existingDocument.setFilePath(request.filePath());
+        if (request.fileSize() != null) existingDocument.setFileSize(request.fileSize());
+        if (request.mimeType() != null) existingDocument.setMimeType(request.mimeType());
+        if (request.content() != null) existingDocument.setContent(request.content());
+        if (request.status() != null) existingDocument.setStatus(request.status());
 
         Document updatedDocument = documentsRepository.save(existingDocument);
         return documentsMapper.toResponse(updatedDocument);
@@ -80,7 +83,7 @@ public class DocumentImplementation implements DocumentService {
     @Override
     public DocumentReponse getById(Long id) {
         Document document = documentsRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé avec l'id : " + id));
+                .orElseThrow(() -> new DocumentNotFoundException(id));
         return documentsMapper.toResponse(document);
     }
 
@@ -95,7 +98,7 @@ public class DocumentImplementation implements DocumentService {
     @Override
     public void delete(Long id) {
         if (!documentsRepository.existsById(id)) {
-            throw new RuntimeException("Document non trouvé avec l'id : " + id);
+            throw new DocumentNotFoundException(id);
         }
         documentsRepository.deleteById(id);
     }
@@ -103,10 +106,10 @@ public class DocumentImplementation implements DocumentService {
     @Transactional
     public DocumentReponse addTagToDocument(Long documentId, Long tagId) {
         Document document = documentsRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé"));
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         Tag tag = tagRepository.findById(tagId)
-                .orElseThrow(() -> new RuntimeException("Tag non trouvé"));
+                .orElseThrow(() -> new TagNotFoundException(tagId));
 
         document.getTags().add(tag);
         Document updated = documentsRepository.save(document);
@@ -117,10 +120,10 @@ public class DocumentImplementation implements DocumentService {
     @Transactional
     public DocumentReponse removeTagFromDocument(Long documentId, Long tagId) {
         Document document = documentsRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé"));
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         Tag tag = tagRepository.findById(tagId)
-                .orElseThrow(() -> new RuntimeException("Tag non trouvé"));
+                .orElseThrow(() -> new TagNotFoundException(tagId));
 
         document.getTags().remove(tag);
         Document updated = documentsRepository.save(document);
@@ -132,10 +135,10 @@ public class DocumentImplementation implements DocumentService {
     @Transactional
     public DocumentReponse addFolderToDocument(Long documentId, Long folderId) {
         Document document = documentsRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé"));
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         Folder folder = folderRepository.findById(folderId)
-                .orElseThrow(() -> new RuntimeException("Dossier non trouvé"));
+                .orElseThrow(() -> new FolderNotFoundException(folderId));
 
         document.getFolders().add(folder);
         Document updated = documentsRepository.save(document);
@@ -146,10 +149,10 @@ public class DocumentImplementation implements DocumentService {
     @Transactional
     public DocumentReponse removeFolderFromDocument(Long documentId, Long folderId) {
         Document document = documentsRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document non trouvé"));
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
 
         Folder folder = folderRepository.findById(folderId)
-                .orElseThrow(() -> new RuntimeException("Dossier non trouvé"));
+                .orElseThrow(() -> new FolderNotFoundException(folderId));
 
         document.getFolders().remove(folder);
         Document updated = documentsRepository.save(document);

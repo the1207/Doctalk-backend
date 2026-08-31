@@ -1,7 +1,5 @@
 package com.Doctalk.Doctalk_backend.dto.reponse;
 
-import jakarta.persistence.Column;
-
 import java.time.LocalDateTime;
 
 public record FolderReponse(

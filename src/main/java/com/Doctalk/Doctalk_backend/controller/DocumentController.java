@@ -1,15 +1,26 @@
 package com.Doctalk.Doctalk_backend.controller;
 
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.Doctalk.Doctalk_backend.dto.reponse.DocumentReponse;
 import com.Doctalk.Doctalk_backend.dto.request.DocumentRequest;
 import com.Doctalk.Doctalk_backend.service.DocumentService;
 import com.Doctalk.Doctalk_backend.service.FileStorageService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/documents")
@@ -25,7 +36,7 @@ public class DocumentController {
     }
 
     @PostMapping
-    public ResponseEntity<DocumentReponse> create(@RequestBody DocumentRequest request) {
+    public ResponseEntity<DocumentReponse> create(@Valid @RequestBody DocumentRequest request) {
         DocumentReponse response = documentService.create(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -43,7 +54,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DocumentReponse> update(@PathVariable Long id, @RequestBody DocumentRequest request) {
+    public ResponseEntity<DocumentReponse> update(@PathVariable Long id, @Valid @RequestBody DocumentRequest request) {
         DocumentReponse response = documentService.update(id, request);
         return ResponseEntity.ok(response);
     }
