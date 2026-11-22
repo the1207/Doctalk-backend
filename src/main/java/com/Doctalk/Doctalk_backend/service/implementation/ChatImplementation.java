@@ -166,6 +166,7 @@ public class ChatImplementation implements ChatService {
     }
 
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
+        System.out.println("[DOCDEBUG] API key present: " + (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) + ", length: " + (apiKey != null ? apiKey.length() : 0) + ", starts with: " + (apiKey != null && apiKey.length() > 3 ? apiKey.substring(0, 3) : "none"));
         if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
             try {
                 return callGeminiHttp(prompt);
