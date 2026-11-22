@@ -166,130 +166,28 @@ public class ChatImplementation implements ChatService {
     }
 
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
-        System.out.println("[DOCDEBUG] API key present: " + (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) + ", length: " + (apiKey != null ? apiKey.length() : 0) + ", starts with: " + (apiKey != null && apiKey.length() > 3 ? apiKey.substring(0, 3) : "none"));
-        if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
-            // Essayer avec le SDK Google Gen AI qui supporte nativement les clés AQ.
-            try {
-                com.google.genai.Client client = com.google.genai.Client.builder()
-                        .apiKey(apiKey)
-                        .build();
-
-                com.google.genai.types.GenerateContentResponse response = client.models.generateContent(
-                        "gemini-2.0-flash",
-                        prompt,
-                        null
-                );
-
-                String text = response.text();
-                if (text != null && !text.isBlank()) {
-                    System.out.println("[DOCDEBUG] Gemini SDK success! Response length: " + text.length());
-                    return text;
-                }
-            } catch (Exception e) {
-                System.out.println("[DOCDEBUG] Gemini SDK failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            }
-
-            // Essayer avec x-goog-api-key header
-            try {
-                return callGeminiHttp(prompt);
-            } catch (Exception e) {
-                System.out.println("[DOCDEBUG] Gemini HTTP failed: " + e.getMessage());
-            }
-        }
-
-        // Fallback : reformuler les extraits de façon concise
+        // Le backend ne fait que le RAG (retrieval).
+        // L'inférence est gérée par Firebase AI Logic côté frontend (hackathon requirement).
+        // On retourne les extraits concaténés pour que le frontend les envoie à Firebase AI Logic.
         StringBuilder sb = new StringBuilder();
-        sb.append("D'après le contenu de votre document, voici ce que j'ai trouvé :\n\n");
-        for (int i = 0; i < Math.min(chunks.size(), 3); i++) {
+        for (int i = 0; i < Math.min(chunks.size(), 5); i++) {
             String content = chunks.get(i).getContent();
-            // Résumer : prendre les 200 premiers caractères significatifs
-            if (content.length() > 200) {
-                content = content.substring(0, 200) + "...";
+            if (content.length() > 800) {
+                content = content.substring(0, 800) + "...";
             }
-            sb.append("• ").append(content.trim()).append("\n\n");
+            sb.append(content.trim()).append("\n\n");
         }
-        sb.append("_Note : La génération complète nécessite une clé API Gemini valide configurée dans les variables d'environnement._");
-        return sb.toString();
+        return sb.toString().trim();
     }
 
     private String callGeminiHttp(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-
-        com.google.gson.JsonObject requestBody = new com.google.gson.JsonObject();
-        com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
-        com.google.gson.JsonObject content = new com.google.gson.JsonObject();
-        com.google.gson.JsonArray parts = new com.google.gson.JsonArray();
-        com.google.gson.JsonObject part = new com.google.gson.JsonObject();
-        part.addProperty("text", prompt);
-        parts.add(part);
-        content.add("parts", parts);
-        contents.add(content);
-        requestBody.add("contents", contents);
-
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                .uri(java.net.URI.create(url))
-                .header("Content-Type", "application/json")
-                .header("x-goog-api-key", apiKey)
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                .build();
-
-        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Gemini API error: " + response.statusCode() + " - " + response.body().substring(0, Math.min(300, response.body().length())));
-        }
-
-        com.google.gson.JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
-        com.google.gson.JsonArray candidates = jsonResponse.getAsJsonArray("candidates");
-        if (candidates != null && !candidates.isEmpty()) {
-            com.google.gson.JsonObject firstCandidate = candidates.get(0).getAsJsonObject();
-            com.google.gson.JsonObject contentObj = firstCandidate.getAsJsonObject("content");
-            com.google.gson.JsonArray partsArr = contentObj.getAsJsonArray("parts");
-            return partsArr.get(0).getAsJsonObject().get("text").getAsString();
-        }
-
-        throw new RuntimeException("Gemini API returned no content");
+        // Non utilisé - l'inférence est gérée par Firebase AI Logic côté frontend
+        throw new UnsupportedOperationException("Use Firebase AI Logic on frontend");
     }
 
     private String callGeminiHttpBearer(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-
-        com.google.gson.JsonObject requestBody = new com.google.gson.JsonObject();
-        com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
-        com.google.gson.JsonObject content = new com.google.gson.JsonObject();
-        com.google.gson.JsonArray parts = new com.google.gson.JsonArray();
-        com.google.gson.JsonObject part = new com.google.gson.JsonObject();
-        part.addProperty("text", prompt);
-        parts.add(part);
-        content.add("parts", parts);
-        contents.add(content);
-        requestBody.add("contents", contents);
-
-        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                .uri(java.net.URI.create(url))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
-                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                .build();
-
-        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Gemini Bearer error: " + response.statusCode() + " - " + response.body().substring(0, Math.min(200, response.body().length())));
-        }
-
-        com.google.gson.JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
-        com.google.gson.JsonArray candidates = jsonResponse.getAsJsonArray("candidates");
-        if (candidates != null && !candidates.isEmpty()) {
-            com.google.gson.JsonObject firstCandidate = candidates.get(0).getAsJsonObject();
-            com.google.gson.JsonObject contentObj = firstCandidate.getAsJsonObject("content");
-            com.google.gson.JsonArray partsArr = contentObj.getAsJsonArray("parts");
-            return partsArr.get(0).getAsJsonObject().get("text").getAsString();
-        }
-
-        throw new RuntimeException("Gemini Bearer API returned no content");
+        // Non utilisé - l'inférence est gérée par Firebase AI Logic côté frontend
+        throw new UnsupportedOperationException("Use Firebase AI Logic on frontend");
     }
 
     private List<Source> buildSources(List<ChunkSimilarityProjection> chunks) {
