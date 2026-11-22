@@ -168,16 +168,32 @@ public class ChatImplementation implements ChatService {
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
         System.out.println("[DOCDEBUG] API key present: " + (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) + ", length: " + (apiKey != null ? apiKey.length() : 0) + ", starts with: " + (apiKey != null && apiKey.length() > 3 ? apiKey.substring(0, 3) : "none"));
         if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
+            // Essayer avec le SDK Google Gen AI qui supporte nativement les clés AQ.
+            try {
+                com.google.genai.Client client = com.google.genai.Client.builder()
+                        .apiKey(apiKey)
+                        .build();
+
+                com.google.genai.types.GenerateContentResponse response = client.models.generateContent(
+                        "gemini-2.0-flash",
+                        prompt,
+                        null
+                );
+
+                String text = response.text();
+                if (text != null && !text.isBlank()) {
+                    System.out.println("[DOCDEBUG] Gemini SDK success! Response length: " + text.length());
+                    return text;
+                }
+            } catch (Exception e) {
+                System.out.println("[DOCDEBUG] Gemini SDK failed: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+
+            // Essayer avec x-goog-api-key header
             try {
                 return callGeminiHttp(prompt);
             } catch (Exception e) {
-                System.out.println("[DOCDEBUG] Gemini call failed: " + e.getMessage());
-                // Try with Bearer token
-                try {
-                    return callGeminiHttpBearer(prompt);
-                } catch (Exception e2) {
-                    System.out.println("[DOCDEBUG] Gemini Bearer call also failed: " + e2.getMessage());
-                }
+                System.out.println("[DOCDEBUG] Gemini HTTP failed: " + e.getMessage());
             }
         }
 
