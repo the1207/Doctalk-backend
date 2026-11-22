@@ -55,6 +55,16 @@ public class ChatImplementation implements ChatService {
         Message userMessage = new Message("USER", request.question(), conversation);
         messageRepository.save(userMessage);
 
+        // Détecter si c'est un message conversationnel (salut, bonjour, merci...)
+        String question = request.question().trim().toLowerCase();
+        if (isConversational(question)) {
+            String greetingAnswer = respondConversationally(request.question());
+            Message assistantMessage = new Message("ASSISTANT", greetingAnswer, conversation);
+            assistantMessage.setSources(gson.toJson(new ArrayList<Source>()));
+            messageRepository.save(assistantMessage);
+            return new ChatResponse(conversation.getId(), greetingAnswer, new ArrayList<>(), LocalDateTime.now());
+        }
+
         List<Float> queryEmbedding = embeddingService.generateEmbedding(request.question());
         String vectorString = VectorUtils.toPgVectorLiteral(queryEmbedding);
 
@@ -67,7 +77,8 @@ public class ChatImplementation implements ChatService {
 
         String answer;
         if (relevantChunks.isEmpty()) {
-            answer = "Je n'ai trouvé aucun contenu pertinent dans les documents vectorisés. Merci de téléverser un document ou de vérifier qu'il est bien traité.";
+            answer = "Je n'ai trouvé aucun contenu pertinent dans les documents pour cette question. "
+                   + "Téléversez un document ou reformulez votre question.";
         } else {
             String prompt = buildPrompt(request.question(), relevantChunks, request.documentId() != null);
             answer = callGeminiOrFallback(prompt, relevantChunks);
@@ -87,6 +98,37 @@ public class ChatImplementation implements ChatService {
         );
     }
 
+    private boolean isConversational(String question) {
+        String[] greetings = {"salut", "bonjour", "bonsoir", "hello", "hi", "coucou", "hey",
+                              "merci", "d'accord", "ok", "super", "génial", "parfait",
+                              "au revoir", "bye", "comment ça va", "ça va"};
+        for (String greeting : greetings) {
+            if (question.equals(greeting) || question.startsWith(greeting + " ") || question.startsWith(greeting + "!")) {
+                return true;
+            }
+        }
+        return question.length() < 10 && !question.contains("?") && !question.contains("qu");
+    }
+
+    private String respondConversationally(String originalQuestion) {
+        String q = originalQuestion.trim().toLowerCase();
+        if (q.contains("salut") || q.contains("bonjour") || q.contains("hello") || q.contains("hi") || q.contains("coucou") || q.contains("hey")) {
+            return "Salut ! 👋 Je suis DocTalk, ton assistant de cours. Pose-moi une question sur ton document "
+                 + "et je te répondrai en m'appuyant sur son contenu. Tu peux aussi aller dans l'Espace Révision "
+                 + "pour générer des quiz, des flashcards ou des fiches de révision.";
+        }
+        if (q.contains("merci")) {
+            return "De rien ! 🙌 N'hésite pas si tu as d'autres questions sur ton document.";
+        }
+        if (q.contains("ça va") || q.contains("comment ça va")) {
+            return "Je vais très bien, merci ! Je suis prêt à t'aider avec tes documents. Pose-moi une question !";
+        }
+        if (q.contains("au revoir") || q.contains("bye")) {
+            return "À bientôt ! 👋";
+        }
+        return "Je suis là pour t'aider. Pose-moi une question sur ton document et je te répondrai à partir de son contenu.";
+    }
+
     private Conversation getOrCreateConversation(Long conversationId) {
         if (conversationId != null) {
             return conversationRepository.findById(conversationId)
@@ -99,26 +141,31 @@ public class ChatImplementation implements ChatService {
     private String buildPrompt(String question, List<ChunkSimilarityProjection> chunks, boolean isDocumentContext) {
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
-            context.append("Extrait ").append(i + 1).append(":\n")
-                    .append(chunks.get(i).getContent())
+            // Limiter chaque extrait à 800 caractères pour éviter de saturer le contexte
+            String content = chunks.get(i).getContent();
+            if (content.length() > 800) {
+                content = content.substring(0, 800) + "...";
+            }
+            context.append("[Extrait ").append(i + 1).append("]\n")
+                    .append(content)
                     .append("\n\n");
         }
 
-        String baseInstruction = "Tu es un assistant expert.";
-        if (isDocumentContext) {
-            baseInstruction += " Réponds en priorité à partir du document sélectionné.";
-        } else {
-            baseInstruction += " Réponds uniquement à partir des documents disponibles.";
-        }
-
-        return baseInstruction + " Si la réponse n'est pas dans les extraits, dis-le clairement. Ne invente pas d'informations.\n\n"
-                + "### EXTRAITS :\n" + context.toString()
-                + "### QUESTION :\n" + question + "\n\n"
-                + "### RÉPONSE :";
+        return "Tu es DocTalk, un assistant pédagogique qui aide les étudiants à comprendre leurs documents. "
+                + "L'utilisateur t'a posé une question. Réponds de façon naturelle et conversationnelle.\n\n"
+                + "Règles :\n"
+                + "- Réponds à la question en t'appuyant sur les extraits ci-dessous.\n"
+                + "- Sois clair, concis et structuré. Utilise des listes si pertinent.\n"
+                + "- Si la réponse n'est pas dans les extraits, dis-le simplement.\n"
+                + "- N'invente jamais d'informations.\n"
+                + "- Ne recopie pas les extraits tels quels : reformule avec tes propres mots.\n\n"
+                + "### EXTRAITS DU DOCUMENT :\n" + context.toString()
+                + "### QUESTION DE L'ÉTUDIANT :\n" + question + "\n\n"
+                + "### TA RÉPONSE :\n";
     }
 
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
-        if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
+        if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${") && apiKey.startsWith("AIza")) {
             try {
                 Client client = Client.builder()
                         .apiKey(apiKey)
@@ -136,13 +183,19 @@ public class ChatImplementation implements ChatService {
             }
         }
 
-        // Mode Firebase AI Logic Hybride : Les extraits sont structurés pour le client
+        // Fallback : reformuler les extraits de façon concise
         StringBuilder sb = new StringBuilder();
-        sb.append("Voici les éléments identifiés dans vos documents pour cette requête :\n\n");
+        sb.append("D'après le contenu de votre document, voici ce que j'ai trouvé :\n\n");
         for (int i = 0; i < Math.min(chunks.size(), 3); i++) {
-            sb.append("• ").append(chunks.get(i).getContent().trim()).append("\n\n");
+            String content = chunks.get(i).getContent();
+            // Résumer : prendre les 200 premiers caractères significatifs
+            if (content.length() > 200) {
+                content = content.substring(0, 200) + "...";
+            }
+            sb.append("• ").append(content.trim()).append("\n\n");
         }
-        sb.append("⚡ *DocTalk Hybrid AI : L'inférence générative est exécutée en temps réel via le SDK Firebase AI Logic (Gemini Nano on-device dans Chrome avec basculement Cloud).*");
+        sb.append("_Note : La génération complète nécessite une clé API Gemini valide (commençant par AIza...). "
+                 + "Configurez GEMINI_API_KEY avec une clé issue de Google AI Studio._");
         return sb.toString();
     }
 
