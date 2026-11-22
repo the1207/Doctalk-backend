@@ -165,7 +165,7 @@ public class ChatImplementation implements ChatService {
     }
 
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
-        if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${") && apiKey.startsWith("AIza")) {
+        if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
             try {
                 Client client = Client.builder()
                         .apiKey(apiKey)
@@ -194,8 +194,7 @@ public class ChatImplementation implements ChatService {
             }
             sb.append("• ").append(content.trim()).append("\n\n");
         }
-        sb.append("_Note : La génération complète nécessite une clé API Gemini valide (commençant par AIza...). "
-                 + "Configurez GEMINI_API_KEY avec une clé issue de Google AI Studio._");
+        sb.append("_Note : La génération complète nécessite une clé API Gemini valide configurée dans les variables d'environnement._");
         return sb.toString();
     }
 
