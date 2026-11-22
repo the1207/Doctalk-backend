@@ -50,6 +50,7 @@ public class ChatImplementation implements ChatService {
     @Override
     @Transactional
     public ChatResponse ask(ChatRequest request) {
+        System.out.println("[DOCDEBUG] ChatImplementation v2 called with question: " + request.question());
         Conversation conversation = getOrCreateConversation(request.conversationId());
 
         Message userMessage = new Message("USER", request.question(), conversation);
