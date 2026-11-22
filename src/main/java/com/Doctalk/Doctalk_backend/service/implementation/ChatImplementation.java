@@ -170,7 +170,13 @@ public class ChatImplementation implements ChatService {
             try {
                 return callGeminiHttp(prompt);
             } catch (Exception e) {
-                // Fallback gracieux en cas d'erreur de quota ou d'indisponibilité
+                System.out.println("[DOCDEBUG] Gemini call failed: " + e.getMessage());
+                // Try with Bearer token
+                try {
+                    return callGeminiHttpBearer(prompt);
+                } catch (Exception e2) {
+                    System.out.println("[DOCDEBUG] Gemini Bearer call also failed: " + e2.getMessage());
+                }
             }
         }
 
@@ -226,6 +232,46 @@ public class ChatImplementation implements ChatService {
         }
 
         throw new RuntimeException("Gemini API returned no content");
+    }
+
+    private String callGeminiHttpBearer(String prompt) throws Exception {
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+
+        com.google.gson.JsonObject requestBody = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
+        com.google.gson.JsonObject content = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray parts = new com.google.gson.JsonArray();
+        com.google.gson.JsonObject part = new com.google.gson.JsonObject();
+        part.addProperty("text", prompt);
+        parts.add(part);
+        content.add("parts", parts);
+        contents.add(content);
+        requestBody.add("contents", contents);
+
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiKey)
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                .build();
+
+        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Gemini Bearer error: " + response.statusCode() + " - " + response.body().substring(0, Math.min(200, response.body().length())));
+        }
+
+        com.google.gson.JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
+        com.google.gson.JsonArray candidates = jsonResponse.getAsJsonArray("candidates");
+        if (candidates != null && !candidates.isEmpty()) {
+            com.google.gson.JsonObject firstCandidate = candidates.get(0).getAsJsonObject();
+            com.google.gson.JsonObject contentObj = firstCandidate.getAsJsonObject("content");
+            com.google.gson.JsonArray partsArr = contentObj.getAsJsonArray("parts");
+            return partsArr.get(0).getAsJsonObject().get("text").getAsString();
+        }
+
+        throw new RuntimeException("Gemini Bearer API returned no content");
     }
 
     private List<Source> buildSources(List<ChunkSimilarityProjection> chunks) {
