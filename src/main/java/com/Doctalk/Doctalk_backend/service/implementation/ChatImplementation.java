@@ -168,17 +168,7 @@ public class ChatImplementation implements ChatService {
     private String callGeminiOrFallback(String prompt, List<ChunkSimilarityProjection> chunks) {
         if (apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("${")) {
             try {
-                Client client = Client.builder()
-                        .apiKey(apiKey)
-                        .build();
-
-                GenerateContentResponse response = client.models.generateContent(
-                        "gemini-2.0-flash",
-                        prompt,
-                        null
-                );
-
-                return response.text();
+                return callGeminiHttp(prompt);
             } catch (Exception e) {
                 // Fallback gracieux en cas d'erreur de quota ou d'indisponibilité
             }
@@ -197,6 +187,45 @@ public class ChatImplementation implements ChatService {
         }
         sb.append("_Note : La génération complète nécessite une clé API Gemini valide configurée dans les variables d'environnement._");
         return sb.toString();
+    }
+
+    private String callGeminiHttp(String prompt) throws Exception {
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+
+        com.google.gson.JsonObject requestBody = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
+        com.google.gson.JsonObject content = new com.google.gson.JsonObject();
+        com.google.gson.JsonArray parts = new com.google.gson.JsonArray();
+        com.google.gson.JsonObject part = new com.google.gson.JsonObject();
+        part.addProperty("text", prompt);
+        parts.add(part);
+        content.add("parts", parts);
+        contents.add(content);
+        requestBody.add("contents", contents);
+
+        java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(url))
+                .header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                .build();
+
+        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Gemini API error: " + response.statusCode());
+        }
+
+        com.google.gson.JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
+        com.google.gson.JsonArray candidates = jsonResponse.getAsJsonArray("candidates");
+        if (candidates != null && !candidates.isEmpty()) {
+            com.google.gson.JsonObject firstCandidate = candidates.get(0).getAsJsonObject();
+            com.google.gson.JsonObject contentObj = firstCandidate.getAsJsonObject("content");
+            com.google.gson.JsonArray partsArr = contentObj.getAsJsonArray("parts");
+            return partsArr.get(0).getAsJsonObject().get("text").getAsString();
+        }
+
+        throw new RuntimeException("Gemini API returned no content");
     }
 
     private List<Source> buildSources(List<ChunkSimilarityProjection> chunks) {
