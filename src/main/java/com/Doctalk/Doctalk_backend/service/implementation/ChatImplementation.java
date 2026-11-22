@@ -197,7 +197,7 @@ public class ChatImplementation implements ChatService {
     }
 
     private String callGeminiHttp(String prompt) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
         com.google.gson.JsonObject requestBody = new com.google.gson.JsonObject();
         com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
@@ -214,13 +214,14 @@ public class ChatImplementation implements ChatService {
         java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                 .uri(java.net.URI.create(url))
                 .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
                 .POST(java.net.http.HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
         java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
-            throw new RuntimeException("Gemini API error: " + response.statusCode());
+            throw new RuntimeException("Gemini API error: " + response.statusCode() + " - " + response.body().substring(0, Math.min(300, response.body().length())));
         }
 
         com.google.gson.JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
